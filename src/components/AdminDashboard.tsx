@@ -33,7 +33,8 @@ interface SupportTicket {
 }
 
 function formatWaPhone(phone: string): string {
-  return phone.replace(/\D/g, "");
+  const digits = phone.replace(/\D/g, "");
+  return digits.length === 10 ? `91${digits}` : digits;
 }
 
 function normalizeStatus(raw?: string): TicketStatus {
@@ -913,7 +914,7 @@ export default function AdminDashboard() {
                   </span>
                   <div className="flex items-center gap-2">
                     <a
-                      href={`https://wa.me/${formatWaPhone(
+                      href={`https://web.whatsapp.com/send?phone=${formatWaPhone(
                         selectedTicket.contact
                       )}`}
                       target="_blank"
