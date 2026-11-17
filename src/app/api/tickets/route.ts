@@ -16,10 +16,9 @@ async function sendTelegramNotification(ticket: TicketRecord): Promise<void> {
   const isTech = ticket.type === "tech";
   const lines = [
     isTech
-      ? "🛠️ <b>New Technical Support Request</b>"
-      : "📋 <b>New Project Support Request</b>",
+      ? `🛠️ <b>New Technical Support Request</b>  <code>#${escapeHtml(ticket.id)}</code>`
+      : `📋 <b>New Project Support Request</b>  <code>#${escapeHtml(ticket.id)}</code>`,
     "",
-    `🆔 <b>Ticket:</b> #${escapeHtml(ticket.id)}`,
     `👤 <b>Name:</b> ${escapeHtml(ticket.name)}`,
     `📞 <b>Contact:</b> ${escapeHtml(ticket.contact)}`,
     `🎓 <b>Batch:</b> ${escapeHtml(ticket.batch)}`,
@@ -33,10 +32,16 @@ async function sendTelegramNotification(ticket: TicketRecord): Promise<void> {
     lines.push(`🗂️ <b>Project:</b> ${escapeHtml(ticket.projectType)}`);
   }
 
-  lines.push(`📝 <b>Description:</b> ${escapeHtml(ticket.description)}`);
+  lines.push("");
+  lines.push(
+    `📝 <b>${isTech ? "Issue" : "Description"}:</b>\n${escapeHtml(
+      ticket.description
+    )}`
+  );
 
   if (ticket.audioDataUrl) {
-    lines.push("🎧 <b>Audio:</b> Voice note attached (view in Admin Console)");
+    lines.push("");
+    lines.push("🎧 <b>Audio:</b> Voice note attached (open Admin Console)");
   }
 
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
