@@ -58,6 +58,13 @@ function formatDuration(minutes: number): string {
   return mins > 0 ? `${hrs} hr ${mins} min` : `${hrs} hr`;
 }
 
+function isTicketOverdue(t: SupportTicket, nowMs: number): boolean {
+  if (t.status === "resolved") return false;
+  const createdMs = parseTicketTime(t.timestamp);
+  if (createdMs === null) return false;
+  return nowMs - createdMs > 60 * 60 * 1000;
+}
+
 const PAGE_SIZE = 10;
 const STATUS_STORAGE_KEY = "admin_ticket_overrides_v1";
 
@@ -221,7 +228,11 @@ export default function AdminDashboard() {
   }, [selectedTicket]);
 
   const stats = useMemo(() => {
+    const nowMs = Date.now();
     const pending = tickets.filter((t) => t.status !== "resolved").length;
+    const overdueCount = tickets.filter((t) =>
+      isTicketOverdue(t, nowMs)
+    ).length;
     const techCount = tickets.filter((t) => t.type === "tech").length;
     const projectCount = tickets.filter((t) => t.type === "project").length;
     const audioCount = tickets.filter((t) => Boolean(t.audioUrl)).length;
@@ -322,6 +333,7 @@ export default function AdminDashboard() {
 
     return {
       pending,
+      overdueCount,
       techCount,
       projectCount,
       resolvedCount,
@@ -491,11 +503,17 @@ export default function AdminDashboard() {
               <span className="font-headline text-headline-lg text-light-on-surface font-bold mt-1 block">
                 {stats.pending}
               </span>
-              <span className="font-body text-body-sm text-error flex items-center gap-1 mt-1">
+              <span
+                className={`font-body text-body-sm flex items-center gap-1 mt-1 ${
+                  stats.overdueCount > 0 ? "text-error" : "text-success"
+                }`}
+              >
                 <span className="material-symbols-outlined text-[14px]">
-                  warning
+                  {stats.overdueCount > 0 ? "warning" : "schedule"}
                 </span>
-                Support exceeded 1 hr
+                {stats.overdueCount > 0
+                  ? `${stats.overdueCount} exceeded 1 hr`
+                  : "All within 1 hr"}
               </span>
             </div>
             <div className="w-12 h-12 rounded-full bg-error/10 text-error flex items-center justify-center">
@@ -714,12 +732,17 @@ export default function AdminDashboard() {
                   ) : (
                     paginatedTickets.map((t) => {
                       const isSelected = selectedTicket?.id === t.id;
+                      const overdue = isTicketOverdue(t, Date.now());
                       return (
                         <tr
                           key={t.id}
                           onClick={() => setSelectedId(t.id)}
                           className={`hover:bg-light-surface/60 transition-colors cursor-pointer ${
-                            isSelected ? "bg-primary/5" : ""
+                            isSelected
+                              ? "bg-primary/5"
+                              : overdue
+                              ? "bg-error/5"
+                              : ""
                           }`}
                         >
                           <td className="py-3.5 px-4">
@@ -728,8 +751,8 @@ export default function AdminDashboard() {
                                 className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                                   t.status === "resolved"
                                     ? "bg-success"
-                                    : t.urgencyTone === "error"
-                                    ? "bg-error"
+                                    : overdue
+                                    ? "bg-error animate-pulse"
                                     : "bg-warning"
                                 }`}
                               />
@@ -798,9 +821,14 @@ export default function AdminDashboard() {
                             <span className="font-label text-label-md text-light-on-surface block capitalize">
                               {t.status.replace("_", " ")}
                             </span>
-                            <span className="text-light-on-surface-muted text-[11px]">
+                            <span className="text-light-on-surface-muted text-[11px] block">
                               {t.ageLabel || t.timestamp}
                             </span>
+                            {overdue && (
+                              <span className="text-error text-[11px] font-semibold block">
+                                Overdue (&gt; 1 hr)
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-right">
                             <button

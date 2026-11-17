@@ -51,6 +51,20 @@ async function sendTelegramNotification(ticket: TicketRecord): Promise<void> {
       chat_id: chatId,
       text: lines.join("\n"),
       parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "🟡 In Progress",
+              callback_data: `status:${ticket.id}:in_progress`,
+            },
+            {
+              text: "✅ Resolved",
+              callback_data: `status:${ticket.id}:resolved`,
+            },
+          ],
+        ],
+      },
     }),
   });
 }
