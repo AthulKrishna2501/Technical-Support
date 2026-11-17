@@ -88,28 +88,29 @@ export async function POST(request: Request) {
       audioDataUrl,
     });
 
-    const notifications: Promise<unknown>[] = [
-      sendTelegramNotification(ticket),
-    ];
+    const hasDirectTelegram = Boolean(
+      process.env.TELEGRAM_BOT_TOKEN?.trim() &&
+        process.env.TELEGRAM_CHAT_ID?.trim()
+    );
 
-    // Also forward to Apps Script if configured (awaited so Vercel doesn't cancel it)
-    const webhookUrl =
-      (formType === "tech"
-        ? process.env.NEXT_PUBLIC_TECH_APPS_SCRIPT_URL?.trim()
-        : process.env.NEXT_PUBLIC_PROJECT_APPS_SCRIPT_URL?.trim()) ||
-      process.env.NEXT_PUBLIC_APPS_SCRIPT_URL?.trim();
+    if (hasDirectTelegram) {
+      await sendTelegramNotification(ticket);
+    } else {
+      // Fallback to Apps Script only when direct Telegram env vars are not set
+      const webhookUrl =
+        (formType === "tech"
+          ? process.env.NEXT_PUBLIC_TECH_APPS_SCRIPT_URL?.trim()
+          : process.env.NEXT_PUBLIC_PROJECT_APPS_SCRIPT_URL?.trim()) ||
+        process.env.NEXT_PUBLIC_APPS_SCRIPT_URL?.trim();
 
-    if (webhookUrl) {
-      notifications.push(
-        fetch(webhookUrl, {
+      if (webhookUrl) {
+        await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(body),
-        })
-      );
+        }).catch(() => {});
+      }
     }
-
-    await Promise.allSettled(notifications);
 
     return NextResponse.json({ ok: true, ticket });
   } catch (err) {
