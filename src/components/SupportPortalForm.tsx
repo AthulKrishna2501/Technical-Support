@@ -529,12 +529,6 @@ export default function SupportPortalForm() {
       audio: mode === "tech" ? audioPayload : null,
     };
 
-    const endpointUrl =
-      (mode === "tech"
-        ? process.env.NEXT_PUBLIC_TECH_APPS_SCRIPT_URL?.trim()
-        : process.env.NEXT_PUBLIC_PROJECT_APPS_SCRIPT_URL?.trim()) ||
-      process.env.NEXT_PUBLIC_APPS_SCRIPT_URL?.trim();
-
     try {
       try {
         window.localStorage.setItem(SAVED_EMAIL_KEY, payload.email);
@@ -543,26 +537,19 @@ export default function SupportPortalForm() {
         // ignore storage errors
       }
 
-      const ticketId = `STU-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      if (!endpointUrl) {
-        // Local preview fallback when NEXT_PUBLIC_APPS_SCRIPT_URL is not configured yet
-        await new Promise((r) => setTimeout(r, 450));
-        handleResetPreservingBanner();
-        setSubmittedTicket({ id: ticketId, mode });
-        return;
-      }
-
-      const response = await fetch(endpointUrl, {
+      const response = await fetch("/api/tickets", {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      if (!data.ok) {
+      if (!response.ok || !data.ok) {
         throw new Error(data.error || "Submission failed.");
       }
+
+      const ticketId =
+        data.ticket?.id || `STU-${Math.floor(100000 + Math.random() * 900000)}`;
 
       setAnnouncement("Your ticket was submitted successfully.");
       handleResetPreservingBanner();

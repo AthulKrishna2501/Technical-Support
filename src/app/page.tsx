@@ -3,7 +3,7 @@ import SupportPortalForm from "@/components/SupportPortalForm";
 
 export default function HomePage() {
   return (
-    <>
+    <div className="min-h-screen py-10 px-4 sm:px-6 flex flex-col">
       {/* Top Support Bar */}
       <header className="w-full max-w-2xl mx-auto mb-6 flex items-center">
         <div className="flex items-center gap-3">
@@ -35,6 +35,6 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-    </>
+    </div>
   );
 }

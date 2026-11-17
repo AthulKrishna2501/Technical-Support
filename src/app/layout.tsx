@@ -29,7 +29,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-light-surface text-light-on-surface font-body antialiased flex flex-col py-10 px-4 sm:px-6">
+      <body className="min-h-screen bg-light-surface text-light-on-surface font-body antialiased flex flex-col">
         {children}
       </body>
     </html>

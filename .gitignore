@@ -10,6 +10,7 @@ tsconfig.tsbuildinfo
 # Local environment & secrets
 .env*.local
 Code.gs
+data/
 
 # macOS
 .DS_Store
