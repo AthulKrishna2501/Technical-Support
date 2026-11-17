@@ -1,5 +1,54 @@
 import { NextResponse } from "next/server";
-import { createTicket } from "@/lib/ticketStore";
+import { createTicket, TicketRecord } from "@/lib/ticketStore";
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function sendTelegramNotification(ticket: TicketRecord): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (!token || !chatId) return;
+
+  const isTech = ticket.type === "tech";
+  const lines = [
+    isTech
+      ? "🛠️ <b>New Technical Support Request</b>"
+      : "📋 <b>New Project Support Request</b>",
+    "",
+    `🆔 <b>Ticket:</b> #${escapeHtml(ticket.id)}`,
+    `👤 <b>Name:</b> ${escapeHtml(ticket.name)}`,
+    `📞 <b>Contact:</b> ${escapeHtml(ticket.contact)}`,
+    `🎓 <b>Batch:</b> ${escapeHtml(ticket.batch)}`,
+    `📚 <b>Domain:</b> ${escapeHtml(ticket.domain)}`,
+  ];
+
+  if (isTech && ticket.module) {
+    lines.push(`📖 <b>Module:</b> ${escapeHtml(ticket.module)}`);
+  }
+  if (!isTech && ticket.projectType) {
+    lines.push(`🗂️ <b>Project:</b> ${escapeHtml(ticket.projectType)}`);
+  }
+
+  lines.push(`📝 <b>Description:</b> ${escapeHtml(ticket.description)}`);
+
+  if (ticket.audioDataUrl) {
+    lines.push("🎧 <b>Audio:</b> Voice note attached (view in Admin Console)");
+  }
+
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: lines.join("\n"),
+      parse_mode: "HTML",
+    }),
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -39,7 +88,11 @@ export async function POST(request: Request) {
       audioDataUrl,
     });
 
-    // Best-effort forward to Apps Script (for Telegram alerts / sheet backup)
+    const notifications: Promise<unknown>[] = [
+      sendTelegramNotification(ticket),
+    ];
+
+    // Also forward to Apps Script if configured (awaited so Vercel doesn't cancel it)
     const webhookUrl =
       (formType === "tech"
         ? process.env.NEXT_PUBLIC_TECH_APPS_SCRIPT_URL?.trim()
@@ -47,12 +100,16 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_APPS_SCRIPT_URL?.trim();
 
     if (webhookUrl) {
-      fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(body),
-      }).catch(() => {});
+      notifications.push(
+        fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(body),
+        })
+      );
     }
+
+    await Promise.allSettled(notifications);
 
     return NextResponse.json({ ok: true, ticket });
   } catch (err) {
