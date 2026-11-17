@@ -29,6 +29,26 @@ interface BannerState {
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // 15 MB
 const SAVED_EMAIL_KEY = "support_portal_saved_email";
 
+function isAfterHoursIST(): boolean {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      weekday: "short",
+      hour: "numeric",
+      hour12: false,
+    }).formatToParts(new Date());
+
+    const weekday = parts.find((p) => p.type === "weekday")?.value;
+    const hourVal = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+    const hour = hourVal === 24 ? 0 : hourVal;
+
+    return weekday === "Sun" || hour >= 18;
+  } catch {
+    const now = new Date();
+    return now.getDay() === 0 || now.getHours() >= 18;
+  }
+}
+
 function decodeJwtPayload(token: string): { email?: string; name?: string } | null {
   try {
     const base64Url = token.split(".")[1];
@@ -120,6 +140,7 @@ export default function SupportPortalForm() {
   const [submittedTicket, setSubmittedTicket] = useState<{
     id: string;
     mode: SupportMode;
+    afterHours: boolean;
   } | null>(null);
   const [copiedTicket, setCopiedTicket] = useState(false);
 
@@ -553,7 +574,11 @@ export default function SupportPortalForm() {
 
       setAnnouncement("Your ticket was submitted successfully.");
       handleResetPreservingBanner();
-      setSubmittedTicket({ id: ticketId, mode });
+      setSubmittedTicket({
+        id: ticketId,
+        mode,
+        afterHours: isAfterHoursIST(),
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setBanner({
@@ -585,16 +610,24 @@ export default function SupportPortalForm() {
   };
 
   if (submittedTicket) {
+    const isAfterHours = submittedTicket.afterHours;
+
     return (
       <div>
-        {/* Success Hero Badge & Header */}
+        {/* Status Hero Badge & Header */}
         <div className="text-center pb-6 border-b border-light-outline/60">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 text-success mb-4 shadow-sm ring-8 ring-success/5 animate-pulse">
+          <div
+            className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 shadow-sm ring-8 ${
+              isAfterHours
+                ? "bg-warning/10 text-warning ring-warning/5"
+                : "bg-success/10 text-success ring-success/5 animate-pulse"
+            }`}
+          >
             <span
               className="material-symbols-outlined text-[36px]"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
-              check_circle
+              {isAfterHours ? "nightlight_round" : "check_circle"}
             </span>
           </div>
           <h2 className="font-headline text-headline-lg text-light-on-surface mb-2">
@@ -636,28 +669,62 @@ export default function SupportPortalForm() {
           </div>
         </div>
 
-        {/* Connection Notice Banner */}
-        <section
-          className="py-6 border-b border-light-outline/60"
-          aria-label="Connection Notice"
-        >
-          <div className="p-6 rounded-DEFAULT bg-primary/5 border border-primary/20 flex flex-col items-center text-center gap-3 max-w-xl mx-auto">
-            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[24px]">
-                support_agent
-              </span>
+        {/* Connection / After-Hours Notice Banner */}
+        {isAfterHours ? (
+          <section
+            className="py-6 border-b border-light-outline/60"
+            aria-label="Support Advisory"
+          >
+            <div className="p-6 rounded-DEFAULT bg-warning/5 border border-warning/30 flex flex-col items-center text-center gap-3.5 max-w-xl mx-auto">
+              <div className="w-12 h-12 rounded-full bg-warning/15 text-warning flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[26px]">
+                  coffee
+                </span>
+              </div>
+              <div className="space-y-2.5 max-w-lg mx-auto">
+                <h3 className="font-headline text-headline-sm text-light-on-surface font-bold text-balance">
+                  Our support team needs a little rest too! 😄
+                </h3>
+                <p className="font-body text-body-md text-light-on-surface text-pretty leading-relaxed">
+                  If you raise a ticket after <strong>6:00 PM</strong> or on a{" "}
+                  <strong>Sunday</strong>, a response within 1 hour is not
+                  guaranteed.
+                </p>
+                <p className="font-body text-body-md text-light-on-surface-muted text-pretty leading-relaxed">
+                  If an on-call mentor is available, you might get a response
+                  within an hour. Otherwise, don&apos;t worry! Your ticket will
+                  be waiting for our team, and we&apos;ll get back to you as
+                  soon as the next business day begins.
+                </p>
+                <p className="font-label text-label-md text-primary font-semibold pt-1">
+                  Thanks for your patience. Even experts need to recharge! ☕
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-headline text-headline-sm text-light-on-surface font-semibold">
-                Our expert will connect with you within 1 Hr
-              </p>
-              <p className="font-body text-body-sm text-light-on-surface-muted mt-1 max-w-md mx-auto">
-                A dedicated mentor is reviewing your ticket and will reach out
-                via phone or WhatsApp.
-              </p>
+          </section>
+        ) : (
+          <section
+            className="py-6 border-b border-light-outline/60"
+            aria-label="Connection Notice"
+          >
+            <div className="p-6 rounded-DEFAULT bg-primary/5 border border-primary/20 flex flex-col items-center text-center gap-3 max-w-xl mx-auto">
+              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">
+                  support_agent
+                </span>
+              </div>
+              <div>
+                <p className="font-headline text-headline-sm text-light-on-surface font-semibold">
+                  Our expert will connect with you within 1 Hr
+                </p>
+                <p className="font-body text-body-sm text-light-on-surface-muted mt-1 max-w-md mx-auto">
+                  A dedicated mentor is reviewing your ticket and will reach out
+                  via phone or WhatsApp.
+                </p>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Actions Footer */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
